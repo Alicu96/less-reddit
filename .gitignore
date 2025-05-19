@@ -1,0 +1,4 @@
+.env
+**/.ipynb_checkpoints
+**/__pycache__
+less_reddit.egg-info
