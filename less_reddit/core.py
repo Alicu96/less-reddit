@@ -23,52 +23,86 @@ def clear_screen():
 
 def view_trending_posts(reddit):
     try:
-        clear_screen()
-        print("Loading trending posts...\n")
-        posts = list(reddit.subreddit("all").hot(limit=20))  # You can also use "popular"
-        if not posts:
-            print("[No trending posts found.]")
-            return
+        subreddit = reddit.subreddit("all")
+        generator = subreddit.hot(limit=None)
+        chunk_size = 10
+        all_posts = []
+        current_page = 0
 
-        selected_index = 0
         while True:
-            clear_screen()
-            print("Trending Posts\n")
-            print("-" * 60)
-            for i, post in enumerate(posts):
-                if i == selected_index:
-                    print(f"> [{i+1}] {post.title} | Upvotes: {post.score}, r/{post.subreddit}")
+            # Load initial posts if needed
+            while len(all_posts) <= current_page * chunk_size:
+                print("Loading more trending posts...")
+                new_posts = [post for post in [next(generator, None) for _ in range(chunk_size)] if post is not None]
+                if not new_posts:
+                    print("[No more trending posts available.]")
+                    break
+                all_posts.extend(new_posts)
+
+            start_idx = current_page * chunk_size
+            end_idx = start_idx + chunk_size
+            page_posts = all_posts[start_idx:end_idx]
+
+            if not page_posts:
+                print("\n[No more trending posts to show.]")
+                input("Press Enter to go back...")
+                return
+
+            selected_index = 0
+            while True:
+                clear_screen()
+                print(f"Trending Posts - Page {current_page + 1}\n")
+                print("-" * 60)
+                for i, post in enumerate(page_posts):
+                    if i == selected_index:
+                        print(f"> [{i+1}] {post.title} | Upvotes: {post.score}, r/{post.subreddit}")
+                    else:
+                        print(f"  [{i+1}] {post.title} | Upvotes: {post.score}, r/{post.subreddit}")
+                print("-" * 60)
+                print("↑ ↓ to navigate | Enter to open | n: Next 10 | p: Prev 10 | q: Back")
+
+                key = get_key().lower()  # Make sure we lowercase the key
+
+                # Handle arrow keys (if supported)
+                if os.name != 'nt':
+                    if key == '\x1b':  # ESC sequence for arrow keys
+                        get_key()  # skip [
+                        ch = get_key()
+                        if ch == 'A':  # Up
+                            selected_index = max(0, selected_index - 1)
+                        elif ch == 'B':  # Down
+                            selected_index = min(len(page_posts) - 1, selected_index + 1)
+                        continue  # Skip rest of loop
                 else:
-                    print(f"  [{i+1}] {post.title} | Upvotes: {post.score}, r/{post.subreddit}")
-            print("-" * 60)
-            print("↑ ↓ to navigate, Enter to open, q to go back")
+                    if key == '\xe0':  # Windows arrow prefix
+                        key = get_key()
 
-            key = get_key()
+                # Handle command keys
+                if key == '\r':  # Enter
+                    view_post_with_comments(page_posts[selected_index])
+                elif key == 'n':
+                    if (current_page + 1) * chunk_size < len(all_posts):
+                        current_page += 1
+                    else:
+                        print("Loading next 10 posts...")
+                        new_posts = [post for post in [next(generator, None) for _ in range(chunk_size)] if post is not None]
+                        if new_posts:
+                            all_posts.extend(new_posts)
+                            current_page += 1
+                        else:
+                            print("No more posts available.")
+                    selected_index = 0
+                    break  # Break inner loop to refresh screen
+                elif key == 'p' and current_page > 0:
+                    current_page -= 1
+                    selected_index = 0
+                    break  # Refresh screen
+                elif key == 'q':
+                    return
 
-            if os.name == 'nt':
-                if key == '\xe0':  # Arrow key prefix
-                    key = get_key()
-                    if key == 'H':  # Up
-                        selected_index = max(0, selected_index - 1)
-                    elif key == 'P':  # Down
-                        selected_index = min(len(posts) - 1, selected_index + 1)
-            else:
-                if key == '\x1b':  # ESC sequence
-                    get_key()  # skip [
-                    ch = get_key()
-                    if ch == 'A':  # Up
-                        selected_index = max(0, selected_index - 1)
-                    elif ch == 'B':  # Down
-                        selected_index = min(len(posts) - 1, selected_index + 1)
-
-            if key == '\r':  # Enter
-                view_post_with_comments(posts[selected_index])
-            elif key.lower() == 'q':
-                break
     except Exception as e:
         print(f"[Error loading trending posts: {e}]")
         input("\nPress Enter to continue...")
-
 
 # Get subreddit name
 def get_subreddit(reddit):
