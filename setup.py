@@ -2,7 +2,7 @@ from setuptools import setup, find_packages
 
 setup(
     name="less-reddit",
-    version="0.1.0",
+    version="0.1.1",
     description="A terminal-based Reddit browser with a less-like scrollable viewer.",
     author="Alicu96",
     author_email="trihm1996@gmail.com",

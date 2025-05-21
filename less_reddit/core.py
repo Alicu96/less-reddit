@@ -20,6 +20,56 @@ def init_reddit():
 def clear_screen():
     os.system('cls' if os.name == 'nt' else 'clear')
 
+
+def view_trending_posts(reddit):
+    try:
+        clear_screen()
+        print("Loading trending posts...\n")
+        posts = list(reddit.subreddit("all").hot(limit=20))  # You can also use "popular"
+        if not posts:
+            print("[No trending posts found.]")
+            return
+
+        selected_index = 0
+        while True:
+            clear_screen()
+            print("Trending Posts\n")
+            print("-" * 60)
+            for i, post in enumerate(posts):
+                if i == selected_index:
+                    print(f"> [{i+1}] {post.title} | Upvotes: {post.score}, r/{post.subreddit}")
+                else:
+                    print(f"  [{i+1}] {post.title} | Upvotes: {post.score}, r/{post.subreddit}")
+            print("-" * 60)
+            print("↑ ↓ to navigate, Enter to open, q to go back")
+
+            key = get_key()
+
+            if os.name == 'nt':
+                if key == '\xe0':  # Arrow key prefix
+                    key = get_key()
+                    if key == 'H':  # Up
+                        selected_index = max(0, selected_index - 1)
+                    elif key == 'P':  # Down
+                        selected_index = min(len(posts) - 1, selected_index + 1)
+            else:
+                if key == '\x1b':  # ESC sequence
+                    get_key()  # skip [
+                    ch = get_key()
+                    if ch == 'A':  # Up
+                        selected_index = max(0, selected_index - 1)
+                    elif ch == 'B':  # Down
+                        selected_index = min(len(posts) - 1, selected_index + 1)
+
+            if key == '\r':  # Enter
+                view_post_with_comments(posts[selected_index])
+            elif key.lower() == 'q':
+                break
+    except Exception as e:
+        print(f"[Error loading trending posts: {e}]")
+        input("\nPress Enter to continue...")
+
+
 # Get subreddit name
 def get_subreddit(reddit):
     while True:
@@ -185,19 +235,33 @@ def view_post_with_comments(post):
 
 # Show detailed post view
 def run():
-    reddit = init_reddit()
     while True:
         clear_screen()
         print("Reddit Terminal Browser")
         print("=" * 30)
-        subreddit = get_subreddit(reddit)
-        if not subreddit:
+        print("1. Browse subreddit")
+        print("2. View trending posts")  # NEW OPTION
+        print("Q. Quit")
+        print("=" * 30)
+        print("Use number keys or ↑ ↓ to navigate")
+
+        key = get_key().lower()
+
+        if key == '1' or (key == '\xe0' and get_key() == 'A'):
+            reddit = init_reddit()
+            subreddit = get_subreddit(reddit)
+            if subreddit:
+                category = choose_category()
+                posts = get_posts(subreddit, category)
+                while posts:
+                    selected_post = display_posts_with_selection(posts)
+                    if selected_post:
+                        view_post_with_comments(selected_post)
+                    else:
+                        break
+        elif key == '2':
+            reddit = init_reddit()
+            view_trending_posts(reddit)
+        elif key == 'q':
+            print("Goodbye!")
             break
-        category = choose_category()
-        posts = get_posts(subreddit, category)
-        while posts:
-            selected_post = display_posts_with_selection(posts)
-            if selected_post:
-                view_post_with_comments(selected_post)
-            else:
-                break
