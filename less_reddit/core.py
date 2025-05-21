@@ -226,13 +226,19 @@ def get_key():
 
 # Less-like viewer using plain text and click pager
 def view_post_with_comments(post):
+    from rich.progress import Progress, SpinnerColumn, TextColumn
+    from time import sleep
+    import click
+
     buffer = []
 
+    # Add post title and author
     buffer.append(f"Title: {post.title}")
     buffer.append(f"Posted by u/{post.author}")
     buffer.append("-" * 60)
     buffer.append("")
 
+    # Add post content or link
     if post.is_self:
         if post.selftext.strip():
             buffer.append("Post Content:")
@@ -247,14 +253,23 @@ def view_post_with_comments(post):
     buffer.append("-" * 60)
 
     try:
-        post.comments.replace_more(limit=None)
-        comments = post.comments.list()
+        # Show loading spinner while fetching comments
+        with Progress(
+            SpinnerColumn(),
+            TextColumn("[progress.description]{task.description}"),
+            transient=True,
+        ) as progress:
+            task_id = progress.add_task(description="Loading comments...", total=None)
+            post.comments.replace_more(limit=None)
+            comments = post.comments.list()
 
+        # Append loaded comments
         for comment in comments:
             author = comment.author if comment.author else "[deleted]"
             buffer.append(f"\nComment by u/{author}:")
             buffer.append(comment.body)
 
+            # Add replies if available
             if hasattr(comment, "replies") and comment.replies:
                 buffer.append("  Replies:")
                 for reply in comment.replies:
@@ -265,6 +280,7 @@ def view_post_with_comments(post):
     except Exception as e:
         buffer.append(f"[Error loading comments: {e}]")
 
+    # Show everything in pager
     click.echo_via_pager("\n".join(buffer))
 
 # Show detailed post view
